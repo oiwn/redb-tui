@@ -1,0 +1,29 @@
+session_name: redb-tui
+shell_command_before: "export RUST_LOG=info; clear"
+windows:
+  - window_name: code
+    focus: true
+    start-directory: ./
+    panes:
+      - shell_command:
+        - helix
+  - window_name: cmd1
+    start-directory: ./
+    panes:
+      - shell_command:
+        - clear
+  - window_name: cmd2
+    start-directory: ./
+    panes:
+      - shell_command:
+        - clear
+  - window_name: notes
+    panes:
+      - shell_command:
+        - clear
+        - emacs -nw notes.org
+  - window_name: cmd3
+    panes:
+      - shell_command:
+          - clear
+  
