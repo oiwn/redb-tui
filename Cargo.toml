@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.5.17", features = ["derive"] }
 crossterm = "0.28.1"
+human-repr = "1.1.0"
+log = "0.4.22"
 ratatui = "0.28.1"
 redb = "2.1.2"
+simplelog = "0.12.2"
 thiserror = "1.0.63"

@@ -1,13 +1,14 @@
-use std::path::PathBuf;
+use std::{fs::File, path::PathBuf};
 
 use clap::Parser;
-use redb::Database;
+use log::{error, info};
+use simplelog::{Config, LevelFilter, WriteLogger};
 use thiserror::Error;
+use tui::TuiWrapper;
 
 mod database;
+mod layout;
 mod tui;
-
-use tui::TuiWrapper;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -33,16 +34,42 @@ pub enum AppError {
 }
 pub type Result<T> = std::result::Result<T, AppError>;
 
+fn setup_logger(log_path: &PathBuf) {
+    let log_file = File::create(log_path).expect("Failed to create log file");
+    WriteLogger::init(LevelFilter::Debug, Config::default(), log_file)
+        .expect("Failed to initialize logger");
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    let log_path = args.database_path.with_extension("log");
+    setup_logger(&log_path);
+
+    info!("Starting application");
+    info!("Database path: {:?}", args.database_path);
+    info!("Log file path: {:?}", log_path);
+
     if !args.database_path.exists() {
+        info!("Database does not exist. Creating dummy database.");
         database::create_dummy_database(&args.database_path)?;
-        println!("Created dummy database at {:?}", args.database_path);
+        info!("Created dummy database at {:?}", args.database_path);
     }
 
-    let db = Database::open(&args.database_path)?;
-    let mut tui = TuiWrapper::new(&db)?;
-
-    tui.run()
+    match TuiWrapper::new(&args.database_path) {
+        Ok(mut tui) => {
+            info!("TUI initialized successfully.");
+            if let Err(e) = tui.run() {
+                error!("Error running TUI: {:?}", e);
+                Err(e)
+            } else {
+                info!("Application finished successfully.");
+                Ok(())
+            }
+        }
+        Err(e) => {
+            error!("Failed to initialize TUI: {:?}", e);
+            Err(e)
+        }
+    }
 }

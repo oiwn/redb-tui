@@ -5,6 +5,12 @@ use std::path::PathBuf;
 const USERS: TableDefinition<&str, u32> = TableDefinition::new("users");
 const PRODUCTS: TableDefinition<u32, &str> = TableDefinition::new("products");
 
+#[derive(Debug)]
+pub struct DbProperties {
+    pub file_size: u64,
+    pub num_tables: usize,
+}
+
 pub fn create_dummy_database(path: &PathBuf) -> Result<()> {
     let db = Database::create(path)?;
     let write_txn = db.begin_write()?;
@@ -21,6 +27,9 @@ pub fn create_dummy_database(path: &PathBuf) -> Result<()> {
         table.insert(&1, "Laptop")?;
         table.insert(&2, "Phone")?;
         table.insert(&3, "Tablet")?;
+        table.insert(&4, "Keyboard")?;
+        table.insert(&5, "Wi-fi router")?;
+        table.insert(&6, "Tree")?;
     }
 
     write_txn.commit()?;
