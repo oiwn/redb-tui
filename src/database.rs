@@ -1,5 +1,5 @@
 use crate::Result;
-use redb::{Database, TableDefinition, TableHandle};
+use redb::{Database, DatabaseStats, TableDefinition, TableHandle};
 use std::path::PathBuf;
 
 const USERS: TableDefinition<&str, u32> = TableDefinition::new("users");
@@ -40,4 +40,10 @@ pub fn get_table_names(db: &Database) -> Result<Vec<String>> {
     let read_txn = db.begin_read()?;
     let tables = read_txn.list_tables()?;
     Ok(tables.into_iter().map(|t| t.name().to_string()).collect())
+}
+
+pub fn get_database_stats(db: &Database) -> DatabaseStats {
+    let txn = db.begin_write().unwrap();
+    let stats = txn.stats().unwrap();
+    stats
 }

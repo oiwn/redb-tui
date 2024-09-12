@@ -1,3 +1,4 @@
+use crate::database;
 use crate::database::DbProperties;
 use crate::layout;
 use crate::Result;
@@ -10,9 +11,9 @@ use crossterm::{
     ExecutableCommand,
 };
 use human_repr::HumanCount;
-use log::{debug, error, info};
+use log::{debug, info};
 use ratatui::{backend::CrosstermBackend, Terminal};
-use redb::{Database, DatabaseStats, ReadableTable, TableDefinition};
+use redb::Database;
 use std::{fs, io, path::Path};
 
 pub struct TuiWrapper {
@@ -106,10 +107,17 @@ impl Tui {
                     &self.selected_table_content,
                 );
 
+                let stats = database::get_database_stats(&self.db);
+
                 let status = format!(
-                    "Tables: {} | DB Size: {}",
+                    "Tables: {} | DB Size: {} Height: {} Pages: {} Stored: {} Meta: {} Frag: {}",
                     self.db_properties.num_tables,
                     self.db_properties.file_size.human_count_bytes(),
+                    stats.tree_height(),
+                    stats.allocated_pages(),
+                    stats.stored_bytes().human_count_bytes(),
+                    stats.metadata_bytes().human_count_bytes(),
+                    stats.fragmented_bytes().human_count_bytes(),
                 );
                 layout::render_bottom_status(frame, bottom, &status);
             })?;
@@ -164,65 +172,46 @@ impl Tui {
         if let Some(selected) = self.list_state.selected() {
             if let Some(table_name) = self.table_names.get(selected) {
                 debug!("Updating content for selected table: {}", table_name);
-                self.selected_table_content = self.read_table_content(table_name);
-                self.selected_table_content =
-                    vec![("Key".to_string(), "Value".to_string())];
-            }
-        }
-    }
 
-    fn read_table_content(&self, table_name: &str) -> Vec<(String, String)> {
-        let read_txn = self.db.begin_read().unwrap();
-        let table_def = TableDefinition::<&[u8], &[u8]>::new(table_name);
-        let table = read_txn.open_table(table_def);
+                // NOTE: Unable to read key/values from untyped table. Typed table required
+                // TableDefnition at compile time, see
+                // https://github.com/cberner/redb/issues/741
+                //
+                // self.selected_table_content = self.read_table_content(table_name);
+                // let txn = self.db.begin_read().unwrap();
+                // debug!("txn: {:?}", txn);
+                // let slices: TableDefinition<&[u8], &[u8]> =
+                //     TableDefinition::new(&table_name);
+                // debug!("slices: {:?}", slices.to_string());
+                // let table = txn.open_table(slices);
+                // debug!("Table: {:?}", table);
+                // let table = table.unwrap();
 
-        if let Err(err) = table {
-            error!("Error opening table to read content: {}", err);
-            return vec![("Nothing".to_string(), "There".to_string())];
-        }
-        let table = table.unwrap();
+                // // Iterate over keys; interpreting them is another challenge
+                // self.selected_table_content = vec![];
+                // let table_iter = table.iter();
+                // debug!("Have iterator? {}", table_iter.is_err());
+                // for result in table.iter().unwrap() {
+                //     let (key, value) = result.unwrap();
+                //     let key = String::from_utf8(key.value().to_vec())
+                //         .unwrap_or("key".to_string());
+                //     let value = String::from_utf8(value.value().to_vec())
+                //         .unwrap_or("value".to_string());
+                //     debug!("Key: {:?}, Value size: {}", key, value,);
+                //     self.selected_table_content.push((key, value));
+                // }
 
-        let mut content = Vec::new();
-        for result in table.iter().unwrap() {
-            let (key, value) = result.unwrap();
-            let key_str = self.guess_type(key.value());
-            let value_str = self.guess_type(value.value());
-            content.push((key_str, value_str));
-        }
-
-        content
-    }
-
-    fn guess_type(&self, data: &[u8]) -> String {
-        if data.is_empty() {
-            return "Empty".to_string();
-        }
-
-        // Try to guess the type based on the content and length
-        match data.len() {
-            1 => {
-                if data[0] == 0 || data[0] == 1 {
-                    format!(
-                        "bool: {}",
-                        if data[0] == 0 { "false" } else { "true" }
-                    )
-                } else {
-                    format!("u8: {}", u8::from_le_bytes([data[0]]))
-                }
-            }
-            2 => format!("u16: {}", u16::from_le_bytes([data[0], data[1]])),
-            4 => format!(
-                "u32: {}",
-                u32::from_le_bytes([data[0], data[1], data[2], data[3]])
-            ),
-            8 => format!("u64: {}", u64::from_le_bytes(data.try_into().unwrap())),
-            _ => {
-                // Try to interpret as a string
-                if let Ok(s) = std::str::from_utf8(data) {
-                    format!("String: {}", s)
-                } else {
-                    format!("Raw bytes: {:?}", data)
-                }
+                // Fill with dummy values for now
+                self.selected_table_content = vec![
+                    ("Key".to_string(), "Value".to_string()),
+                    ("Key".to_string(), "Value".to_string()),
+                    ("Key".to_string(), "Value".to_string()),
+                    ("Key".to_string(), "Value".to_string()),
+                    ("Key".to_string(), "Value".to_string()),
+                    ("Key".to_string(), "Value".to_string()),
+                    ("Key".to_string(), "Value".to_string()),
+                    ("Key".to_string(), "Value".to_string()),
+                ];
             }
         }
     }
